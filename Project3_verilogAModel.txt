@@ -1,0 +1,69 @@
+// VerilogA for EDA2122, teste, veriloga
+
+`include "constants.vams"
+`include "disciplines.vams"
+
+module teste(n, p);
+inout n, p;  //inout for bidirectional ports
+electrical n, p, no1, no2;
+
+real miuR=1; 
+real miu=4*(`M_PI*1e-7*miuR); 
+real E0= 8.854187817e-12;               
+real c=299792458;                       
+real t= 2.8e-6;                         
+real Rsheet=10*1e-3;                    
+real Ro=Rsheet*t;                      
+real Toxide = 5.42e-6;                 
+real t_M_underpass = 0.4e-6; 
+real toxide_Munderpass = Toxide-t_M_underpass-4.76e-6;
+real Erox= 4;                           
+real Eox=E0*Erox;                       
+real Ersub=11.9;                        
+real Esub=E0*Ersub;                     
+real Tsub =700e-6;                      
+real Sub_resistiv=2800;
+ 
+parameter real W =1.530673e-05;
+parameter real dout = 3.381547e-04;
+parameter real s = 5e-6;
+parameter real nTurns  =3;
+parameter real freq  =2.4e9;
+parameter real Nside = 8;
+parameter real K1 = 2.25;
+parameter real K2 = 3.55;
+
+
+real din = dout - (2*nTurns*W) - 2*(nTurns -1)*s;
+real davg = 0.5*(dout+din);
+real px = (dout-din)/(dout+din);
+real l = Nside * davg * nTurns * (tan(`M_PI/Nside));
+real sigma = sqrt(Ro/(`M_PI*freq*miu));
+real t_eff = (1-exp(-t/sigma));
+real Cp = (nTurns-1) * (W**2) * (Eox/toxide_Munderpass);
+real Cox = 0.5*l*W *(Eox/Toxide);
+real Csub  =0.5*l*W *(Esub/Tsub);
+real Ls = ((nTurns**2)*davg * K1*miu)/(1+K2*px);
+real Rs = (l*Ro)/(W*sigma*t_eff);
+real Rsub = 2*Tsub *(Sub_resistiv)/(W*l);
+
+branch(n, p) Cp_paralelo, Ls_serie;
+
+analog begin
+
+V(Ls_serie)  <+ Rs*I(Ls_serie);
+V(Ls_serie)  <+ Ls*ddt(I(Ls_serie));
+I(Cp_paralelo) <+ Cp*ddt(V(Cp_paralelo));
+
+I(n, no1) <+ ddt(V(n, no1))*Cox;
+I(no1) <+ V(no1)/Rsub;  			//Corrente no Rsub
+I(no1) <+ ddt(V(no1))*Csub;       //Corrente no Csub
+
+I(p, no2) <+ ddt(V(n, no2))*Cox;
+I(no2) <+ V(no2)/Rsub;
+I(no2) <+ ddt(V(no2))*Csub;
+
+end
+
+
+endmodule
